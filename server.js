@@ -2,72 +2,83 @@
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
+// Serve static frontend
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Game state
 let players = {};
 let lockedSeeds = new Set();
 let calledNumbers = new Set();
 let callPool = [];
 let callInterval = null;
-let gameStarted = false;
-let countdownTime = 60;
 let countdownTimer = null;
+let countdownTime = 60;
+let gameStarted = false;
 let winnerInfo = null;
 
-function broadcastPlayerList() {
+function broadcastPlayers() {
   io.emit('players', Object.values(players));
 }
 
-function startCountdown() {
-  if (countdownTimer || gameStarted) return;
-
-  countdownTime = 60;
-  io.emit('countdown', countdownTime);
-
-  countdownTimer = setInterval(() => {
-    countdownTime--;
+function startCountdownIfNeeded() {
+  if (Object.keys(players).length >= 2 && !gameStarted && !countdownTimer) {
+    countdownTime = 60;
     io.emit('countdown', countdownTime);
-    if (countdownTime <= 0) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-      startGame();
-    }
-  }, 1000);
+
+    countdownTimer = setInterval(() => {
+      countdownTime--;
+      io.emit('countdown', countdownTime);
+      if (countdownTime <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        startGame();
+      }
+    }, 1000);
+  }
 }
 
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
+  calledNumbers.clear();
   callPool = Array.from({ length: 75 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
-  calledNumbers = new Set();
   io.emit('gameStarted');
+
   callInterval = setInterval(() => {
     if (callPool.length === 0) return;
     const number = callPool.shift();
     calledNumbers.add(number);
     io.emit('numberCalled', number);
-  }, 10000); // every 10 seconds
+  }, 10000); // every 10s
 }
 
 function resetGame() {
+  clearInterval(callInterval);
+  clearInterval(countdownTimer);
+  callInterval = null;
+  countdownTimer = null;
+
   players = {};
   lockedSeeds = new Set();
   calledNumbers = new Set();
   callPool = [];
   gameStarted = false;
   winnerInfo = null;
-  clearInterval(callInterval);
-  clearInterval(countdownTimer);
-  countdownTimer = null;
-  callInterval = null;
+
   io.emit('reset');
 }
 
 io.on('connection', (socket) => {
-  console.log('Player connected:', socket.id);
+  console.log('User connected:', socket.id);
 
   socket.on('register', ({ username, seed }) => {
     if (gameStarted) {
@@ -75,22 +86,23 @@ io.on('connection', (socket) => {
       return;
     }
     if (lockedSeeds.has(seed)) {
-      socket.emit('blocked', 'Seed already taken');
+      socket.emit('blocked', 'Card already taken');
       return;
     }
+
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);
     socket.emit('init', { calledNumbers: Array.from(calledNumbers) });
-    broadcastPlayerList();
-
-    if (Object.keys(players).length >= 2) {
-      startCountdown();
-    }
+    broadcastPlayers();
+    startCountdownIfNeeded();
   });
 
   socket.on('bingo', (card) => {
     if (!gameStarted || winnerInfo) return;
-    winnerInfo = { username: players[socket.id]?.username || 'Unknown', card };
+    winnerInfo = {
+      username: players[socket.id]?.username || 'Unknown',
+      card
+    };
     io.emit('winner', winnerInfo);
     clearInterval(callInterval);
   });
@@ -105,11 +117,11 @@ io.on('connection', (socket) => {
       lockedSeeds.delete(player.seed);
       delete players[socket.id];
     }
-    broadcastPlayerList();
-    console.log('Player disconnected:', socket.id);
+    broadcastPlayers();
+    console.log('User disconnected:', socket.id);
   });
 });
 
 server.listen(3000, () => {
-  console.log('Bingo server running on http://localhost:3000');
+  console.log('✅ Bingo server running at http://localhost:3000');
 });

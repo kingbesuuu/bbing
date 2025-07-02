@@ -24,3 +24,4 @@ serve .
 - 10s number calling
 - Winner detection and broadcast
 - Play Again and full reset
+# Bingo
