@@ -89,13 +89,44 @@
       renderGameCard();
     });
 
-    socket.on('numberCalled', (number) => {
-      calledNumbers.add(number);
-      renderMiniTable();
-      renderGameCard();
-      updateBall(number);
-    });
+  // ✅ Called number from server
+socket.on('numberCalled', (number) => {
+  if (!calledNumbers.has(number)) {
+    calledNumbers.add(number);
+    updateBall(number);
+    renderMiniTable();
+    renderGameCard();
+    calledCount.textContent = `Numbers Called: ${calledNumbers.size}`;
+    console.log("🔔 Number called:", number); // debug
+  }
+});
 
+// ✅ Countdown before game starts
+socket.on('countdown', (seconds) => {
+  gameMessage.textContent = `⏳ Game starts in ${seconds}s...`;
+});
+
+// ✅ Game started
+socket.on('gameStarted', () => {
+  gameMessage.textContent = '🎯 Game has started!';
+});
+
+// ✅ Winner shown
+socket.on('winner', (data) => {
+  gameMessage.innerHTML = `🎉 <b>${data.username}</b> got Bingo!<br/><pre>${JSON.stringify(data.card, null, 2)}</pre>`;
+});
+
+// ✅ Blocked from joining
+socket.on('blocked', (reason) => {
+  alert('❌ Blocked: ' + reason);
+  location.reload();
+});
+
+// ✅ Play again resets
+socket.on('reset', () => {
+  location.reload();
+});
+    
     const grid = document.getElementById('number-grid');
     const page1 = document.getElementById('page1');
     const page2 = document.getElementById('page2');
@@ -194,7 +225,7 @@
       callsNeededToWin = 15 + Math.floor(Math.random() * 11);
       callInterval = setInterval(callNumber, 3700);
       cardNumberDisplay.textContent = `Card Number: ${currentSeed}`;
-      socket.emit('register', card);
+      socket.emit('register', { username: prompt("Enter your Telegram username:"), seed: currentSeed });
     }
 
     function callNumber() {
