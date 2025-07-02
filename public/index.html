@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Multiplayer Bingo</title>
@@ -41,7 +42,7 @@
     #called-count { font-size: 14px; margin-bottom: 5px; font-weight: bold; }
     .bingo-card-container { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
     #game-message { margin-top: 10px; font-weight: bold; }
-    #page2 { position: relative; }
+    #page2  { position: relative; }
   </style>
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 </head>
@@ -61,27 +62,41 @@
         <div class="buttons">
           <button onclick="checkBingo()">Bingo!</button>
           <button onclick="endGame()">End Game</button>
+          
         </div>
       </div>
     </div>
     <div id="game-message"></div>
     <div id="card-number-display" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
   </div>
-
+<div id="username-display" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
+  
   <script>
-    const socket = io();
-    let currentPlayerId;
-    let gameCard = [];
-    let calledNumbers = new Set();
-    let allCallPool = [];
-    let callHistory = [];
-    let callInterval;
-    let callsNeededToWin = 15 + Math.floor(Math.random() * 11);
-    let currentSeed = null;
+  const socket = io();
 
-    socket.on('connect', () => {
-      currentPlayerId = socket.id;
-    });
+// ✅ Detect Telegram username (fallback to Guest)
+let telegramUsername = "Guest-" + Math.floor(Math.random() * 1000);
+
+if (
+  window.Telegram &&
+  Telegram.WebApp &&
+  Telegram.WebApp.initDataUnsafe?.user?.username
+) {
+  telegramUsername = Telegram.WebApp.initDataUnsafe.user.username;
+}
+
+let currentPlayerId;
+let gameCard = [];
+let calledNumbers = new Set();
+let allCallPool = [];
+let callHistory = [];
+let callInterval;
+let callsNeededToWin = 15 + Math.floor(Math.random() * 11);
+let currentSeed = null;
+
+socket.on('connect', () => {
+  currentPlayerId = socket.id;
+});
 
     socket.on('init', (data) => {
       calledNumbers = new Set(data.calledNumbers || []);
@@ -225,7 +240,11 @@ socket.on('reset', () => {
       callsNeededToWin = 15 + Math.floor(Math.random() * 11);
       callInterval = setInterval(callNumber, 3700);
       cardNumberDisplay.textContent = `Card Number: ${currentSeed}`;
-      socket.emit('register', { username: prompt("Enter your Telegram username:"), seed: currentSeed });
+      socket.emit('register', {
+  username: telegramUsername,
+  seed: currentSeed
+});
+      document.getElementById('username-display').textContent = `👤 Username: @${telegramUsername}`;
     }
 
     function callNumber() {

@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+    label { display: block; margin-top: 10px; }
+    input { padding: 6px; margin-top: 5px; width: 300px; }
+    button { margin-top: 15px; padding: 8px 16px; }
+    #admin-form, #balance-form { display: none; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Admin Login</h2>
+
+  <div id="login-form">
+    <label>Username:
+      <input type="text" id="admin-username" placeholder="admin" />
+    </label>
+    <label>Password:
+      <input type="password" id="admin-password" placeholder="password" />
+    </label>
+    <button onclick="adminLogin()">Login</button>
+    <p id="login-error" style="color: red;"></p>
+  </div>
+
+  <div id="balance-form">
+    <h3>💰 Update Player Balance</h3>
+    <label>Telegram Username:
+      <input type="text" id="username" placeholder="e.g. kingbesuuu" />
+    </label>
+    <label>New Balance:
+      <input type="number" id="amount" />
+    </label>
+    <button onclick="updateBalance()">Update Balance</button>
+    <p id="result" style="margin-top: 20px;"></p>
+  </div>
+
+  <script>
+    const ADMIN_USERNAME = "admin";
+    const ADMIN_PASSWORD = "admin123"; // change this!
+    const ADMIN_SECRET = "changeme"; // must match server.js
+
+    function adminLogin() {
+      const user = document.getElementById("admin-username").value.trim();
+      const pass = document.getElementById("admin-password").value;
+      const error = document.getElementById("login-error");
+
+      if (user === ADMIN_USERNAME && pass === ADMIN_PASSWORD) {
+        document.getElementById("login-form").style.display = "none";
+        document.getElementById("balance-form").style.display = "block";
+      } else {
+        error.textContent = "❌ Invalid username or password.";
+      }
+    }
+
+    async function updateBalance() {
+      const username = document.getElementById("username").value.trim();
+      const amount = parseInt(document.getElementById("amount").value);
+      const result = document.getElementById("result");
+
+      if (!username || isNaN(amount)) {
+        result.textContent = '❌ Please fill in all fields.';
+        return;
+      }
+
+      const res = await fetch('/admin/update-balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + ADMIN_SECRET
+        },
+        body: JSON.stringify({ username, amount })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        result.textContent = `✅ Updated @${username}'s balance to ${amount}`;
+      } else {
+        result.textContent = `❌ Error: ${data.error || 'Unknown error'}`;
+      }
+    }
+  </script>
+</body>
+</html>
