@@ -161,7 +161,7 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('register', ({ username, seed }) => {
-    if ((balances[username] || 0) < 10) {
+    if ((balances[username] || 0) < 0) {
       socket.emit('blocked', 'Not enough balance to play. Please top up.');
       return;
     }
@@ -171,18 +171,30 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (lockedSeeds.has(seed)) {
+    // Use stored seed if exists, otherwise use provided seed
+    const storedPlayer = storedPlayers[username] || {};
+    const playerSeed = storedPlayer.seed ?? seed;
+
+    if (lockedSeeds.has(playerSeed)) {
       socket.emit('blocked', 'Card already taken');
       return;
     }
 
-    players[socket.id] = { id: socket.id, username, seed };
-    lockedSeeds.add(seed);
+    const balance = storedPlayer.balance ?? (balances[username] || 0);
+
+    players[socket.id] = {
+      id: socket.id,
+      username,
+      seed: playerSeed,
+      balance,  // store balance in player info
+    };
+
+    lockedSeeds.add(playerSeed);
     userSocketMap[username] = socket.id;
 
     socket.emit('init', {
       calledNumbers: Array.from(calledNumbers),
-      balance: balances[username] || 0,
+      balance,
       lockedSeeds: Array.from(lockedSeeds),
     });
 

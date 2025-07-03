@@ -261,7 +261,7 @@ socket.on('reset', () => {
     }
 
     function startGame(card) {
-  if (playerBalance < 10) {
+  if (playerBalance < 0) {
     alert('❌ Not enough balance. Top up to play.');
     return;
   }
