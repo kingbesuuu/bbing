@@ -75,6 +75,8 @@
   <script>
   const socket = io();
 
+  
+
 // ✅ Detect Telegram username (fallback to Guest)
 let telegramUsername = "Guest-" + Math.floor(Math.random() * 1000);
 
@@ -86,6 +88,7 @@ if (
   telegramUsername = Telegram.WebApp.initDataUnsafe.user.username;
 }
 
+let playerBalance = 0; // ✅ Add this line
 let currentPlayerId;
 let gameCard = [];
 let calledNumbers = new Set();
