@@ -73,9 +73,17 @@
 <div id="username-display" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
 <div id="balance-display" style="text-align: center; font-weight: bold;">💰 Balance: 0</div>
   <script>
-  const socket = io();
-
   
+const socket = io();  // connect to the socket server
+
+let playerBalance = 0; // ✅ Initialize playerBalance before using it
+
+// Then add your listener for balance updates:
+socket.on('balanceUpdate', (newBalance) => {
+  playerBalance = newBalance;
+  updateBalanceDisplay();
+  alert(`💰 Your balance was updated to ${newBalance}`);
+});
 
 // ✅ Detect Telegram username (fallback to Guest)
 let telegramUsername = "Guest-" + Math.floor(Math.random() * 1000);
@@ -88,7 +96,6 @@ if (
   telegramUsername = Telegram.WebApp.initDataUnsafe.user.username;
 }
 
-let playerBalance = 0; // ✅ Add this line
 let currentPlayerId;
 let gameCard = [];
 let calledNumbers = new Set();
