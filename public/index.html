@@ -67,6 +67,7 @@
       </div>
     </div>
     <div id="game-message"></div>
+    <div id="countdown-bar" style="height: 6px; background: green; width: 100%; margin-top: 4px;"></div>
     <div id="card-number-display" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
   </div>
 <div id="username-display" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
@@ -98,6 +99,19 @@ socket.on('connect', () => {
   currentPlayerId = socket.id;
 });
 
+  // ✅ Countdown before game starts (with progress bar)
+socket.on('countdown', (seconds) => {
+  const gameMessage = document.getElementById('game-message');
+  const bar = document.getElementById('countdown-bar');
+  if (gameMessage) {
+    gameMessage.textContent = `⏳ Game starts in ${seconds}s...`;
+  }
+  if (bar) {
+    const width = (seconds / 60) * 100;
+    bar.style.width = `${width}%`;
+  }
+});
+  
     socket.on('init', (data) => {
   calledNumbers = new Set(data.calledNumbers || []);
   playerBalance = data.balance || 0;
@@ -120,17 +134,18 @@ socket.on('numberCalled', (number) => {
   }
 });
 
-// ✅ Countdown before game starts
-socket.on('countdown', (seconds) => {
+
+
+socket.on('gameStarted', () => {
   const gameMessage = document.getElementById('game-message');
   if (gameMessage) {
-    gameMessage.textContent = `⏳ Game starts in ${seconds}s...`;
+    gameMessage.textContent = '🎯 Game has started!';
   }
-});
 
-// ✅ Game started
-socket.on('gameStarted', () => {
-  gameMessage.textContent = '🎯 Game has started!';
+  const bar = document.getElementById('countdown-bar');
+  if (bar) {
+    bar.style.width = '0%';
+  }
 });
 
 // ✅ Winner shown
