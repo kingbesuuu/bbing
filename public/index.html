@@ -122,7 +122,10 @@ socket.on('numberCalled', (number) => {
 
 // ✅ Countdown before game starts
 socket.on('countdown', (seconds) => {
-  gameMessage.textContent = `⏳ Game starts in ${seconds}s...`;
+  const gameMessage = document.getElementById('game-message');
+  if (gameMessage) {
+    gameMessage.textContent = `⏳ Game starts in ${seconds}s...`;
+  }
 });
 
 // ✅ Game started
