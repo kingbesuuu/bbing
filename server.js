@@ -132,17 +132,12 @@ io.on('connection', (socket) => {
 
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);
-
     userSocketMap[username] = socket.id;
 
-// ✅ Set default balance if not already set
-if (!(username in balances)) {
-  balances[username] = 0; // 🎁 
-}
-
-socket.emit('init', {
+    socket.emit('init', {
   calledNumbers: Array.from(calledNumbers),
-  balance: balances[username],
+  balance: balances[username] || 0,
+  lockedSeeds: Array.from(lockedSeeds), // 👈 add this
 });
 
     broadcastPlayers();

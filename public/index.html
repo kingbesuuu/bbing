@@ -70,7 +70,7 @@
     <div id="card-number-display" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
   </div>
 <div id="username-display" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
-  <div id="balance-display" style="margin-top: 10px; font-weight: bold; text-align: center;">💰 Balance: 100</div>
+<div id="balance-display" style="text-align: center; font-weight: bold;">💰 Balance: ...</div>
   <script>
   const socket = io();
 
@@ -99,10 +99,14 @@ socket.on('connect', () => {
 });
 
     socket.on('init', (data) => {
-      calledNumbers = new Set(data.calledNumbers || []);
-      renderMiniTable();
-      renderGameCard();
-    });
+  calledNumbers = new Set(data.calledNumbers || []);
+  playerBalance = data.balance || 0;
+  lockedSeeds = data.lockedSeeds || [];
+  updateBalanceDisplay();
+  renderMiniTable();
+  renderGameCard();
+  highlightLockedSeeds(); // ← we'll define this below
+});
 
   // ✅ Called number from server
 socket.on('numberCalled', (number) => {
@@ -310,6 +314,22 @@ socket.on('reset', () => {
       }
     }
 
+      function highlightLockedSeeds() {
+  const buttons = document.querySelectorAll('#number-grid button');
+  buttons.forEach(btn => {
+    const num = parseInt(btn.textContent);
+    if (lockedSeeds.includes(num)) {
+      btn.style.backgroundColor = 'red';
+      btn.style.color = 'white';
+      btn.disabled = true;
+    } else {
+      btn.style.backgroundColor = '';
+      btn.style.color = '';
+      btn.disabled = false;
+    }
+  });
+}
+      
     function renderGameCard() {
       gameCardContainer.innerHTML = '';
       const table = document.createElement('table');
