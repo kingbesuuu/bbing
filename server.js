@@ -69,7 +69,7 @@ function startGame() {
     const number = callPool.shift();
     calledNumbers.add(number);
     io.emit('numberCalled', number);
-  }, 10000); // every 10s
+  }, 5000); // every 5s
 }
 
 function resetGame() {
@@ -126,14 +126,22 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('register', ({ username, seed }) => {
-    if (gameStarted) {
-      socket.emit('blocked', 'Game already started');
-      return;
-    }
-    if (lockedSeeds.has(seed)) {
-      socket.emit('blocked', 'Card already taken');
-      return;
-    }
+  if ((balances[username] || 0) < 10) {
+    socket.emit('blocked', 'Not enough balance to play. Please top up.');
+    return;
+  }
+
+  if (gameStarted) {
+    socket.emit('blocked', 'Game already started');
+    return;
+  }
+
+  if (lockedSeeds.has(seed)) {
+    socket.emit('blocked', 'Card already taken');
+    return;
+  }
+
+  // ... continue as usual
 
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);

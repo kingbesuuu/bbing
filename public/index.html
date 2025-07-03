@@ -71,7 +71,7 @@
     <div id="card-number-display" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
   </div>
 <div id="username-display" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
-<div id="balance-display" style="text-align: center; font-weight: bold;">💰 Balance: ...</div>
+<div id="balance-display" style="text-align: center; font-weight: bold;">💰 Balance: 0</div>
   <script>
   const socket = io();
 
@@ -146,6 +146,9 @@ socket.on('gameStarted', () => {
   if (bar) {
     bar.style.width = '0%';
   }
+
+  // ✅ Start calling numbers every 3.7s after game officially starts
+  callInterval = setInterval(callNumber, 5000);
 });
 
 // ✅ Winner shown
@@ -248,29 +251,35 @@ socket.on('reset', () => {
     }
 
     function startGame(card) {
-      page1.classList.add('hidden');
-      page2.classList.remove('hidden');
-      gameCard = card;
-      calledNumbers.clear();
-      callHistory = [];
-      ballScroll.innerHTML = '';
-      calledCount.textContent = 'Numbers Called: 0';
-      allCallPool = Array.from({ length: 75 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
-      renderGameCard();
-      gameMessage.textContent = '';
-      renderMiniTable();
-      callsNeededToWin = 15 + Math.floor(Math.random() * 11);
-      playerBalance -= 10; // Example: deduct 10 per game
-  updateBalanceDisplay();  
-      callInterval = setInterval(callNumber, 3700);
-      cardNumberDisplay.textContent = `Card Number: ${currentSeed}`;
-      socket.emit('register', {
-  username: telegramUsername,
-  seed: currentSeed
-      
-      });
-      document.getElementById('username-display').textContent = `👤 Username: @${telegramUsername}`;
-    }
+  if (playerBalance < 10) {
+    alert('❌ Not enough balance. Top up to play.');
+    return;
+  }
+
+  page1.classList.add('hidden');
+  page2.classList.remove('hidden');
+  gameCard = card;
+  calledNumbers.clear();
+  callHistory = [];
+  ballScroll.innerHTML = '';
+  calledCount.textContent = 'Numbers Called: 0';
+  allCallPool = Array.from({ length: 75 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+  renderGameCard();
+  gameMessage.textContent = '';
+  renderMiniTable();
+  callsNeededToWin = 15 + Math.floor(Math.random() * 11);
+
+  playerBalance -= 10;
+  updateBalanceDisplay();
+
+  cardNumberDisplay.textContent = `Card Number: ${currentSeed}`;
+  socket.emit('register', {
+    username: telegramUsername,
+    seed: currentSeed
+  });
+
+  document.getElementById('username-display').textContent = `👤 Username: @${telegramUsername}`;
+}
 
       function updateBalanceDisplay() {
   const balanceEl = document.getElementById('balance-display');
