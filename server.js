@@ -36,20 +36,18 @@ function broadcastPlayers() {
 }
 
 function startCountdownIfNeeded() {
-  console.log('🔍 Checking countdown conditions...');
   console.log('👥 Player count:', Object.keys(players).length);
   console.log('🎮 Game started:', gameStarted);
-  console.log('⏱ Countdown already running:', !!countdownTimer);
+  console.log('⏱ Timer running:', !!countdownTimer);
 
   if (Object.keys(players).length >= 2 && !gameStarted && !countdownTimer) {
-    console.log('✅ Starting countdown...');
     countdownTime = 60;
     io.emit('countdown', countdownTime);
+    console.log('🚀 Countdown started');
 
     countdownTimer = setInterval(() => {
       countdownTime--;
       io.emit('countdown', countdownTime);
-
       if (countdownTime <= 0) {
         clearInterval(countdownTimer);
         countdownTimer = null;
