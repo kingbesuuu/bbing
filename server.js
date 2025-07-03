@@ -1,12 +1,18 @@
-
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const bodyParser = require('body-parser'); // ✅ Import first
 
 const app = express();
+app.use(bodyParser.json()); // ✅ Then use it
 const server = http.createServer(app);
 const io = socketIO(server);
+
+// 🔐 Admin & Balance
+const balances = {};          // username => balance
+const userSocketMap = {};     // username => socket.id
+const ADMIN_SECRET = 'changeme'; // same as in admin.html
 
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
@@ -14,7 +20,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Game state
+// 🧠 Game state
 let players = {};
 let lockedSeeds = new Set();
 let calledNumbers = new Set();
@@ -77,6 +83,40 @@ function resetGame() {
   io.emit('reset');
 }
 
+// ✅ BALANCE UPDATE FUNCTION
+function updatePlayerBalanceByUsername(username, newBalance) {
+  if (!username || typeof newBalance !== 'number') {
+    throw new Error('Invalid username or balance value');
+  }
+
+  balances[username] = newBalance;
+
+  const socketId = userSocketMap[username];
+  if (socketId && io.sockets.sockets.get(socketId)) {
+    io.to(socketId).emit('balanceUpdate', newBalance);
+  }
+
+  console.log(`✅ Updated balance for @${username} to ${newBalance}`);
+}
+
+// ✅ ADMIN API
+app.post('/admin/update-balance', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const { username, amount } = req.body;
+
+  if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    updatePlayerBalanceByUsername(username, amount);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+// ✅ SOCKET.IO HANDLING
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -92,7 +132,13 @@ io.on('connection', (socket) => {
 
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);
-    socket.emit('init', { calledNumbers: Array.from(calledNumbers) });
+    userSocketMap[username] = socket.id;
+
+    socket.emit('init', {
+      calledNumbers: Array.from(calledNumbers),
+      balance: balances[username] || 0,
+    });
+
     broadcastPlayers();
     startCountdownIfNeeded();
   });
@@ -115,6 +161,7 @@ io.on('connection', (socket) => {
     const player = players[socket.id];
     if (player) {
       lockedSeeds.delete(player.seed);
+      delete userSocketMap[player.username];
       delete players[socket.id];
     }
     broadcastPlayers();
@@ -122,6 +169,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// ✅ START SERVER
 server.listen(3000, () => {
   console.log('✅ Bingo server running at http://localhost:3000');
 });
