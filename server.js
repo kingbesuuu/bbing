@@ -3,6 +3,8 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 const bodyParser = require('body-parser'); // ✅ Import first
+const fs = require('fs');                   // <--- Added here
+const DB_FILE = path.join(__dirname, 'db.json'); // <--- Added here
 
 const app = express();
 app.use(bodyParser.json()); // ✅ Then use it
@@ -14,12 +16,6 @@ const balances = {};          // username => balance
 const userSocketMap = {};     // username => socket.id
 const ADMIN_SECRET = 'changeme'; // same as in admin.html
 
-// Serve static frontend
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // 🧠 Game state
 let players = {};
 let lockedSeeds = new Set();
@@ -30,6 +26,37 @@ let countdownTimer = null;
 let countdownTime = 60;
 let gameStarted = false;
 let winnerInfo = null;
+
+// Stored players loaded from file
+let storedPlayers = {};  // full player info from db.json
+
+// Load players from db.json, fill balances and lockedSeeds
+function loadPlayers() {
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const data = fs.readFileSync(DB_FILE);
+      const obj = JSON.parse(data);
+      if (obj.players) {
+        storedPlayers = obj.players;
+        for (const username in storedPlayers) {
+          balances[username] = storedPlayers[username].balance || 0;
+          lockedSeeds.add(storedPlayers[username].seed);
+        }
+        console.log('✅ Loaded players from db.json');
+      }
+    } catch (e) {
+      console.error('❌ Failed to load players:', e);
+    }
+  }
+}
+
+loadPlayers(); // <--- Call it here to initialize data before server logic
+
+// Serve static frontend
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 function broadcastPlayers() {
   io.emit('players', Object.values(players));
@@ -88,17 +115,21 @@ function resetGame() {
   io.emit('reset');
 }
 
-// ✅ BALANCE UPDATE FUNCTION
 function updatePlayerBalanceByUsername(username, newBalance) {
   if (!username || typeof newBalance !== 'number') {
     throw new Error('Invalid username or balance value');
   }
 
+  // Set balance in memory
   balances[username] = newBalance;
 
+  // If player is connected, notify them
   const socketId = userSocketMap[username];
   if (socketId && io.sockets.sockets.get(socketId)) {
     io.to(socketId).emit('balanceUpdate', newBalance);
+    console.log(`✅ Sent balanceUpdate to connected user @${username}`);
+  } else {
+    console.log(`⚠️ Stored balance for @${username} (user not currently connected)`);
   }
 
   console.log(`✅ Updated balance for @${username} to ${newBalance}`);
@@ -113,11 +144,15 @@ app.post('/admin/update-balance', (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  if (!username || typeof amount !== 'number') {
+    return res.status(400).json({ error: 'Invalid username or amount' });
+  }
+
   try {
     updatePlayerBalanceByUsername(username, amount);
     return res.json({ success: true });
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -126,32 +161,30 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('register', ({ username, seed }) => {
-  if ((balances[username] || 0) < 10) {
-    socket.emit('blocked', 'Not enough balance to play. Please top up.');
-    return;
-  }
+    if ((balances[username] || 0) < 10) {
+      socket.emit('blocked', 'Not enough balance to play. Please top up.');
+      return;
+    }
 
-  if (gameStarted) {
-    socket.emit('blocked', 'Game already started');
-    return;
-  }
+    if (gameStarted) {
+      socket.emit('blocked', 'Game already started');
+      return;
+    }
 
-  if (lockedSeeds.has(seed)) {
-    socket.emit('blocked', 'Card already taken');
-    return;
-  }
-
-  // ... continue as usual
+    if (lockedSeeds.has(seed)) {
+      socket.emit('blocked', 'Card already taken');
+      return;
+    }
 
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);
     userSocketMap[username] = socket.id;
 
     socket.emit('init', {
-  calledNumbers: Array.from(calledNumbers),
-  balance: balances[username] || 0,
-  lockedSeeds: Array.from(lockedSeeds), // 👈 add this
-});
+      calledNumbers: Array.from(calledNumbers),
+      balance: balances[username] || 0,
+      lockedSeeds: Array.from(lockedSeeds),
+    });
 
     broadcastPlayers();
     startCountdownIfNeeded();
