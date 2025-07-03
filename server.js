@@ -132,12 +132,18 @@ io.on('connection', (socket) => {
 
     players[socket.id] = { id: socket.id, username, seed };
     lockedSeeds.add(seed);
+
     userSocketMap[username] = socket.id;
 
-    socket.emit('init', {
-      calledNumbers: Array.from(calledNumbers),
-      balance: balances[username] || 0,
-    });
+// ✅ Set default balance if not already set
+if (!(username in balances)) {
+  balances[username] = 0; // 🎁 
+}
+
+socket.emit('init', {
+  calledNumbers: Array.from(calledNumbers),
+  balance: balances[username],
+});
 
     broadcastPlayers();
     startCountdownIfNeeded();
